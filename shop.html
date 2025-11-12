@@ -2359,15 +2359,28 @@
         
         function getSelectedStatuses() {
             const statuses = [];
-            if (document.getElementById('statusFilter_pending')?.checked) {
+            const pendingCheckbox = document.getElementById('statusFilter_pending');
+            const confirmedCheckbox = document.getElementById('statusFilter_confirmed');
+            const deliveredCheckbox = document.getElementById('statusFilter_delivered');
+            
+            // Si les checkboxes n'existent pas (ancien système avec select), retourner tableau vide
+            // pour que loadAllOrdersWithFilters gère le cas (affichera tout)
+            if (!pendingCheckbox || !confirmedCheckbox || !deliveredCheckbox) {
+                console.log('getSelectedStatuses: Checkboxes non trouvées, retour tableau vide');
+                return [];
+            }
+            
+            if (pendingCheckbox.checked) {
                 statuses.push('pending');
             }
-            if (document.getElementById('statusFilter_confirmed')?.checked) {
+            if (confirmedCheckbox.checked) {
                 statuses.push('confirmed');
             }
-            if (document.getElementById('statusFilter_delivered')?.checked) {
+            if (deliveredCheckbox.checked) {
                 statuses.push('delivered');
             }
+            
+            console.log('getSelectedStatuses: Statuts sélectionnés:', statuses);
             return statuses;
         }
         
