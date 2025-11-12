@@ -2221,11 +2221,12 @@
                 console.log('deleteGroupOrders - Filtres récupérés:', { statusFilters, productFilter, classFilter, sortFilter });
                 
                 // Si aucun filtre de statut n'est sélectionné, sélectionner tous par défaut
-                if (statusFilters.length === 0) {
-                    statusFilters.push('pending', 'confirmed', 'delivered');
-                }
+                // Cela garantit que les filtres sont toujours appliqués
+                const finalStatusFilters = statusFilters.length > 0 ? statusFilters : ['pending', 'confirmed', 'delivered'];
                 
-                await loadAllOrdersWithFilters(statusFilters, productFilter, classFilter, sortFilter);
+                console.log('deleteGroupOrders - Filtres finaux utilisés:', { finalStatusFilters, productFilter, classFilter, sortFilter });
+                
+                await loadAllOrdersWithFilters(finalStatusFilters, productFilter, classFilter, sortFilter);
                 
                 // Toujours recharger les classes (même si la modal n'est pas ouverte)
                 // Cela met à jour allClasses pour la prochaine ouverture de la modal
@@ -2327,11 +2328,9 @@
                 const sortFilter = document.getElementById('sortFilter')?.value || '';
                 
                 // Si aucun filtre de statut n'est sélectionné, sélectionner tous par défaut
-                if (statusFilters.length === 0) {
-                    statusFilters.push('pending', 'confirmed', 'delivered');
-                }
+                const finalStatusFilters = statusFilters.length > 0 ? statusFilters : ['pending', 'confirmed', 'delivered'];
                 
-                await loadAllOrdersWithFilters(statusFilters, productFilter, classFilter, sortFilter);
+                await loadAllOrdersWithFilters(finalStatusFilters, productFilter, classFilter, sortFilter);
                 
             } catch (error) {
                 console.error('Erreur lors de la mise à jour du statut:', error);
