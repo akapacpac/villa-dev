@@ -1723,6 +1723,18 @@
         }
 
         function getProductName(product) {
+            // Vérifier d'abord dans les produits personnalisés
+            const customFilling = customFillings.find(f => f.productId === product);
+            if (customFilling && customFilling.name) {
+                return customFilling.name;
+            }
+            
+            const customSnack = customSnacks.find(s => s.productId === product);
+            if (customSnack && customSnack.name) {
+                return customSnack.name;
+            }
+            
+            // Sinon, utiliser les noms par défaut
             const names = {
                 'crepes-sucre': 'Crêpes Sucre',
                 'crepes-nutella': 'Crêpes Nutella',
