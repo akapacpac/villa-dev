@@ -164,6 +164,29 @@
         .order-row.marking {
             background: #fff3cd !important;
         }
+        
+        /* Styles pour mobile - masquer certaines colonnes */
+        @media (max-width: 768px) {
+            .mobile-hide {
+                display: none !important;
+            }
+            
+            table {
+                font-size: 0.9rem;
+            }
+            
+            th, td {
+                padding: 8px 10px;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -420,9 +443,9 @@
                             <table style="width: 100%; margin: 0;">
                                 <thead>
                                     <tr>
-                                        <th style="background: #f8f9fa; padding: 12px;">Date</th>
+                                        <th class="mobile-hide" style="background: #f8f9fa; padding: 12px;">Date</th>
                                         <th style="background: #f8f9fa; padding: 12px;">Utilisateur</th>
-                                        <th style="background: #f8f9fa; padding: 12px;">Email</th>
+                                        <th class="mobile-hide" style="background: #f8f9fa; padding: 12px;">Email</th>
                                         <th style="background: #f8f9fa; padding: 12px;">Produit</th>
                                         <th style="background: #f8f9fa; padding: 12px;">Prix</th>
                                         <th style="background: #f8f9fa; padding: 12px;">Vote</th>
@@ -461,9 +484,9 @@
                         const rowColor = index % 2 === 0 ? '#fff' : '#f8f9fa';
                         html += `
                             <tr class="order-row" data-order-id="${order.id}" style="background: ${rowColor};" ondblclick="markOrderAsDelivered('${order.id}')" title="Double-cliquez pour marquer comme livrée">
-                                <td style="padding: 12px;">${orderDate} ${orderTime}</td>
+                                <td class="mobile-hide" style="padding: 12px;">${orderDate} ${orderTime}</td>
                                 <td style="padding: 12px;">${userName}</td>
-                                <td style="padding: 12px;">${userEmail}</td>
+                                <td class="mobile-hide" style="padding: 12px;">${userEmail}</td>
                                 <td style="padding: 12px;">${productName}</td>
                                 <td style="padding: 12px;">${price}</td>
                                 <td style="padding: 12px;">${voteDisplay}</td>
