@@ -250,9 +250,11 @@
                         return;
                     }
                     // Filtrer : uniquement les commandes confirmées ou en attente (pas les livrées)
-                    if (orderData.status && orderData.status === 'delivered') {
+                    // Exclure explicitement les commandes avec status 'delivered'
+                    if (orderData.status === 'delivered') {
                         return;
                     }
+                    // Si pas de statut défini, on considère que c'est en attente (on l'inclut)
                     orders.push(orderData);
                 });
                 
