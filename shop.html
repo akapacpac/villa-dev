@@ -2212,19 +2212,31 @@
                     showMessage(`✅ ${ordersToDelete.length} commande(s) supprimée(s) avec succès`, 'success');
                 }
                 
-                // Recharger le tableau avec les filtres actuels
-                const statusFilters = getSelectedStatuses();
-                const productFilter = document.getElementById('productFilter')?.value || '';
-                const classFilter = document.getElementById('classFilter')?.value || '';
-                const sortFilter = document.getElementById('sortFilter')?.value || '';
+                // Recharger le tableau avec les filtres mémorisés
+                // Utiliser les filtres mémorisés ou récupérer depuis le DOM
+                let statusFilters = getSelectedStatuses();
+                let productFilter = document.getElementById('productFilter')?.value || '';
+                let classFilter = document.getElementById('classFilter')?.value || '';
+                let sortFilter = document.getElementById('sortFilter')?.value || '';
                 
-                console.log('deleteGroupOrders - Filtres récupérés:', { statusFilters, productFilter, classFilter, sortFilter });
+                // Si les filtres ne sont pas trouvés dans le DOM, utiliser les filtres mémorisés
+                if (statusFilters.length === 0 && currentFilters.statusFilters) {
+                    statusFilters = currentFilters.statusFilters;
+                }
+                if (!productFilter && currentFilters.productFilter) {
+                    productFilter = currentFilters.productFilter;
+                }
+                if (!classFilter && currentFilters.classFilter) {
+                    classFilter = currentFilters.classFilter;
+                }
+                if (!sortFilter && currentFilters.sortFilter) {
+                    sortFilter = currentFilters.sortFilter;
+                }
                 
-                // Si aucun filtre de statut n'est sélectionné, sélectionner tous par défaut
-                // Cela garantit que les filtres sont toujours appliqués
+                // Si aucun filtre de statut, utiliser tous par défaut
                 const finalStatusFilters = statusFilters.length > 0 ? statusFilters : ['pending', 'confirmed', 'delivered'];
                 
-                console.log('deleteGroupOrders - Filtres finaux utilisés:', { finalStatusFilters, productFilter, classFilter, sortFilter });
+                console.log('deleteGroupOrders - Filtres utilisés:', { finalStatusFilters, productFilter, classFilter, sortFilter });
                 
                 await loadAllOrdersWithFilters(finalStatusFilters, productFilter, classFilter, sortFilter);
                 
@@ -2389,8 +2401,16 @@
             const classFilter = document.getElementById('classFilter').value;
             const sortFilter = document.getElementById('sortFilter').value;
             
+            // Mémoriser les filtres
+            currentFilters = {
+                statusFilters: statusFilters.length > 0 ? statusFilters : ['pending', 'confirmed', 'delivered'],
+                productFilter: productFilter,
+                classFilter: classFilter,
+                sortFilter: sortFilter
+            };
+            
             // Recharger toutes les commandes avec les filtres
-            loadAllOrdersWithFilters(statusFilters, productFilter, classFilter, sortFilter);
+            loadAllOrdersWithFilters(currentFilters.statusFilters, currentFilters.productFilter, currentFilters.classFilter, currentFilters.sortFilter);
         }
 
         async function loadAllOrdersWithFilters(statusFilters, productFilter, classFilter, sortFilter) {
@@ -3273,6 +3293,14 @@
         // Variables globales pour la sélection multiple
         let selectedOrders = new Set();
         let currentFilteredOrders = [];
+        
+        // Variables globales pour mémoriser les filtres actuels
+        let currentFilters = {
+            statusFilters: ['pending', 'confirmed', 'delivered'],
+            productFilter: '',
+            classFilter: '',
+            sortFilter: 'date-desc'
+        };
 
         // Fonctions pour la sélection multiple
         function toggleSelectAll() {
