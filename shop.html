@@ -2333,13 +2333,27 @@
                     dropdown.classList.remove('show');
                 }
                 
-                // Recharger le tableau avec les filtres actuels
-                const statusFilters = getSelectedStatuses();
-                const productFilter = document.getElementById('productFilter')?.value || '';
-                const classFilter = document.getElementById('classFilter')?.value || '';
-                const sortFilter = document.getElementById('sortFilter')?.value || '';
+                // Recharger le tableau avec les filtres mémorisés
+                let statusFilters = getSelectedStatuses();
+                let productFilter = document.getElementById('productFilter')?.value || '';
+                let classFilter = document.getElementById('classFilter')?.value || '';
+                let sortFilter = document.getElementById('sortFilter')?.value || '';
                 
-                // Si aucun filtre de statut n'est sélectionné, sélectionner tous par défaut
+                // Si les filtres ne sont pas trouvés dans le DOM, utiliser les filtres mémorisés
+                if (statusFilters.length === 0 && currentFilters.statusFilters) {
+                    statusFilters = currentFilters.statusFilters;
+                }
+                if (!productFilter && currentFilters.productFilter) {
+                    productFilter = currentFilters.productFilter;
+                }
+                if (!classFilter && currentFilters.classFilter) {
+                    classFilter = currentFilters.classFilter;
+                }
+                if (!sortFilter && currentFilters.sortFilter) {
+                    sortFilter = currentFilters.sortFilter;
+                }
+                
+                // Si aucun filtre de statut, utiliser tous par défaut
                 const finalStatusFilters = statusFilters.length > 0 ? statusFilters : ['pending', 'confirmed', 'delivered'];
                 
                 await loadAllOrdersWithFilters(finalStatusFilters, productFilter, classFilter, sortFilter);
