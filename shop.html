@@ -1750,7 +1750,16 @@
             if (!productName) return '';
             // Enlever "Crêpes" si présent et prendre les initiales des mots restants
             const words = productName.replace(/Crêpes\s*/i, '').split(/\s+/);
-            return words.map(word => word.charAt(0).toUpperCase()).join('');
+            return words
+                .filter(word => word.length > 0) // Filtrer les mots vides
+                .map(word => {
+                    // Prendre le premier caractère et le mettre en majuscule
+                    // Normaliser les caractères accentués pour éviter les problèmes d'affichage
+                    const firstChar = word.charAt(0).toUpperCase();
+                    // Si c'est un caractère accentué, le garder tel quel
+                    return firstChar;
+                })
+                .join('');
         }
 
         function getStatusClass(status) {
