@@ -1124,7 +1124,7 @@
     <script>
         let currentUser = null;
         let pendingOrder = null; // Stocke la commande en attente
-        let currentView = 'bachelor'; // Vue actuelle pour admins/membres
+        let currentView = 'master'; // Vue actuelle pour admins/membres
         let allClasses = []; // Stocke toutes les classes chargées
         let deadlineTimer = null; // Timer pour le compte à rebours de la deadline
         let customFillings = []; // Fillings personnalisés
@@ -1209,19 +1209,19 @@
         
         // Get current program for stock/orders
         function getCurrentProgram() {
-            if (!currentUser) return 'bachelor';
+            if (!currentUser) return 'master';
             
             // Students are locked to their program
             if (currentUser.role === 'student') {
-                return currentUser.program || 'bachelor';
+                return currentUser.program || 'master';
             }
             
             // Admins/members/boss can switch views
             if (currentUser.role === 'admin' || currentUser.role === 'member' || currentUser.role === 'boss') {
-                return currentView || 'bachelor';
+                return currentView || 'master';
             }
             
-            return 'bachelor';
+            return 'master';
         }
 
         function showTab(tabName) {
@@ -1992,7 +1992,15 @@
                                         ${group.orders.length} commande(s)
                                     </p>
                                 </div>
-                                <div style="display: flex; gap: 10px; align-items: center;">
+                                <div style="display: flex; gap: 10px; align-items: center; position: relative;">
+                                    <button onclick="event.stopPropagation(); showGroupStatusDropdown('group_${groupIndex}', event)" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; transition: transform 0.2s; position: relative;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                                        📊 Status
+                                    </button>
+                                    <div id="groupStatusDropdown_group_${groupIndex}" class="status-dropdown-menu" style="display: none !important; position: absolute; top: 100%; left: 0; margin-top: 5px; z-index: 1000;">
+                                        <div class="status-dropdown-item" onclick="updateGroupOrdersStatus('group_${groupIndex}', 'pending'); event.stopPropagation();">En attente</div>
+                                        <div class="status-dropdown-item" onclick="updateGroupOrdersStatus('group_${groupIndex}', 'confirmed'); event.stopPropagation();">Confirmée</div>
+                                        <div class="status-dropdown-item" onclick="updateGroupOrdersStatus('group_${groupIndex}', 'delivered'); event.stopPropagation();">Livrée</div>
+                                    </div>
                                 <button onclick="selectGroupOrders('group_${groupIndex}')" style="background: white; color: #007bff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
                                     ✅ Sélectionner tout le groupe
                                 </button>
@@ -2307,9 +2315,136 @@
             }
         }
         
+        // Fonction pour afficher le dropdown de statut pour un groupe
+        function showGroupStatusDropdown(groupId, event) {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+            
+            // Vérifier s'il y a des commandes sélectionnées dans ce groupe
+            const checkboxes = document.querySelectorAll(`.order-checkbox.${groupId}:checked`);
+            if (checkboxes.length === 0) {
+                showMessage('Veuillez sélectionner au moins une commande dans ce groupe', 'error');
+                return;
+            }
+            
+            // Fermer tous les autres dropdowns
+            document.querySelectorAll('.status-dropdown-menu').forEach(menu => {
+                if (menu.id !== `groupStatusDropdown_${groupId}`) {
+                    menu.classList.remove('show');
+                    menu.style.display = 'none';
+                    menu.style.opacity = '0';
+                    menu.style.pointerEvents = 'none';
+                }
+            });
+            
+            // Toggle le dropdown actuel
+            const dropdown = document.getElementById(`groupStatusDropdown_${groupId}`);
+            if (dropdown) {
+                const isOpen = dropdown.classList.contains('show');
+                
+                if (isOpen) {
+                    // Fermer
+                    dropdown.classList.remove('show');
+                    dropdown.style.display = 'none';
+                    dropdown.style.opacity = '0';
+                    dropdown.style.pointerEvents = 'none';
+                } else {
+                    // Ouvrir
+                    dropdown.classList.add('show');
+                    dropdown.style.display = 'block';
+                    dropdown.style.opacity = '1';
+                    dropdown.style.pointerEvents = 'auto';
+                }
+            }
+        }
+        
+        // Fonction pour mettre à jour le statut de toutes les commandes sélectionnées dans un groupe
+        async function updateGroupOrdersStatus(groupId, newStatus) {
+            if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'member' && currentUser.role !== 'boss')) {
+                showMessage('Seuls les administrateurs, membres et BOSS peuvent modifier les statuts', 'error');
+                return;
+            }
+            
+            // Récupérer toutes les commandes sélectionnées dans ce groupe
+            const checkboxes = document.querySelectorAll(`.order-checkbox.${groupId}:checked`);
+            if (checkboxes.length === 0) {
+                showMessage('Aucune commande sélectionnée dans ce groupe', 'error');
+                return;
+            }
+            
+            const orderIds = Array.from(checkboxes).map(cb => cb.dataset.orderId);
+            const statusText = getStatusText(newStatus);
+            
+            if (!confirm(`Mettre à jour le statut de ${orderIds.length} commande(s) sélectionnée(s) à "${statusText}" ?`)) {
+                return;
+            }
+            
+            try {
+                const batch = db.batch();
+                orderIds.forEach(orderId => {
+                    const orderRef = db.collection('orders').doc(orderId);
+                    batch.update(orderRef, { status: newStatus });
+                });
+                
+                await batch.commit();
+                
+                showMessage(`${orderIds.length} commande(s) mise(s) à jour: ${statusText}`, 'success');
+                
+                // Fermer le dropdown
+                const dropdown = document.getElementById(`groupStatusDropdown_${groupId}`);
+                if (dropdown) {
+                    dropdown.classList.remove('show');
+                    dropdown.style.display = 'none';
+                    dropdown.style.opacity = '0';
+                    dropdown.style.pointerEvents = 'none';
+                }
+                
+                // Désélectionner toutes les commandes
+                checkboxes.forEach(cb => {
+                    cb.checked = false;
+                });
+                updateBulkActions();
+                
+                // Recharger le tableau avec les filtres mémorisés
+                let statusFilters = getSelectedStatuses();
+                let productFilter = document.getElementById('productFilter')?.value || '';
+                let classFilter = document.getElementById('classFilter')?.value || '';
+                let sortFilter = document.getElementById('sortFilter')?.value || '';
+                
+                // Si les filtres ne sont pas trouvés dans le DOM, utiliser les filtres mémorisés
+                if (statusFilters.length === 0 && currentFilters.statusFilters) {
+                    statusFilters = currentFilters.statusFilters;
+                }
+                if (!productFilter && currentFilters.productFilter) {
+                    productFilter = currentFilters.productFilter;
+                }
+                if (!classFilter && currentFilters.classFilter) {
+                    classFilter = currentFilters.classFilter;
+                }
+                if (!sortFilter && currentFilters.sortFilter) {
+                    sortFilter = currentFilters.sortFilter;
+                }
+                
+                // Si aucun filtre de statut, utiliser tous par défaut
+                if (statusFilters.length === 0) {
+                    statusFilters = ['pending', 'confirmed', 'delivered'];
+                }
+                
+                await loadAllOrdersWithFilters(statusFilters, productFilter, classFilter, sortFilter);
+                
+            } catch (error) {
+                console.error('Erreur lors de la mise à jour des statuts:', error);
+                showMessage('Erreur lors de la mise à jour: ' + error.message, 'error');
+            }
+        }
+        
         // Fermer les dropdowns quand on clique ailleurs
         document.addEventListener('click', function(event) {
-            if (!event.target.closest('.status-badge-clickable') && !event.target.closest('.status-dropdown-menu')) {
+            if (!event.target.closest('.status-badge-clickable') && 
+                !event.target.closest('.status-dropdown-menu') &&
+                !event.target.closest('button[onclick*="showGroupStatusDropdown"]')) {
                 document.querySelectorAll('.status-dropdown-menu').forEach(menu => {
                     menu.classList.remove('show');
                     menu.style.display = 'none';
@@ -2541,7 +2676,7 @@
                             firstName: userData.firstName || '',
                             lastName: userData.lastName || '',
                             role: userData.role || 'student',
-                            program: userData.program || 'bachelor'
+                            program: userData.program || 'master'
                         };
                         
                         // Attribuer automatiquement le rôle BOSS à pascalmartinlalande@gmail.com
@@ -2559,9 +2694,9 @@
                         
                         // Initialize currentView based on user role
                         if (currentUser.role === 'admin' || currentUser.role === 'member' || currentUser.role === 'boss') {
-                            currentView = currentView || 'bachelor';
+                            currentView = currentView || 'master';
                         } else {
-                            currentView = currentUser.program || 'bachelor';
+                            currentView = currentUser.program || 'master';
                         }
                     } else {
                         // Si le profil n'existe pas, le créer avec des valeurs par défaut
@@ -2581,9 +2716,9 @@
                             firstName: 'Utilisateur',
                             lastName: 'Nouveau',
                             role: 'student',
-                            program: 'bachelor'
+                            program: 'master'
                         };
-                        currentView = 'bachelor';
+                        currentView = 'master';
                         
                         showMessage('Profil créé automatiquement. Vous pouvez le modifier dans "Mon Compte".', 'success');
                     }
