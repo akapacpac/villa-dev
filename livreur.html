@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Livreur - Villa des Smaqers Brisés</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <script>
+        // Configuration Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDqCYiGvSYitgoPnGdxMzkautcYl511E3I",
+            authDomain: "villa-smaqers-brises.firebaseapp.com",
+            projectId: "villa-smaqers-brises",
+            storageBucket: "villa-smaqers-brises.firebasestorage.app",
+            messagingSenderId: "387262093007",
+            appId: "1:387262093007:web:76173a1e3cd49d80a249ba",
+            measurementId: "G-TBNFR17E82"
+        };
+        
+        // Initialiser Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+    </script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: #333;
+            text-align: center;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        thead {
+            background: #667eea;
+            color: white;
+        }
+        
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #5568d3;
+        }
+        
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e1e5e9;
+        }
+        
+        tbody tr {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        tbody tr:hover {
+            background: #e3f2fd !important;
+        }
+        
+        tbody tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        tbody tr.delivered {
+            opacity: 0.5;
+            text-decoration: line-through;
+        }
+        
+        .room-cell {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .time-cell {
+            font-weight: 600;
+            color: #28a745;
+        }
+        
+        .filling-item {
+            display: inline-block;
+            background: #e3f2fd;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin: 2px;
+            font-size: 0.9rem;
+        }
+        
+        .snack-item {
+            display: inline-block;
+            background: #fff3e0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin: 2px;
+            font-size: 0.9rem;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 1.1rem;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .order-row {
+            position: relative;
+        }
+        
+        .order-row.marking {
+            background: #fff3cd !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚚 Page Livreur</h1>
+        <p class="subtitle">Commandes confirmées - Double-cliquez pour marquer comme livrée</p>
+        
+        <div id="messageContainer"></div>
+        
+        <div id="deliveriesList">
+            <div class="loading">Chargement des livraisons...</div>
+        </div>
+    </div>
+
+    <script>
+        // Calculate delivery time (middle of class)
+        function calculateDeliveryTime(startTime, endTime) {
+            const [startHour, startMin] = startTime.split(':').map(Number);
+            const [endHour, endMin] = endTime.split(':').map(Number);
+            
+            const now = new Date();
+            const startDate = new Date(now);
+            startDate.setHours(startHour, startMin, 0, 0);
+            
+            const endDate = new Date(now);
+            endDate.setHours(endHour, endMin, 0, 0);
+            
+            // Si l'heure de fin est avant l'heure de début (ex: 23:00 - 01:00), ajouter un jour
+            if (endHour < startHour || (endHour === startHour && endMin < startMin)) {
+                endDate.setDate(endDate.getDate() + 1);
+            }
+            
+            // Middle time
+            const middleTime = new Date((startDate.getTime() + endDate.getTime()) / 2);
+            
+            return middleTime;
+        }
+        
+        // Format time to HH:MM
+        function formatTime(date) {
+            if (!(date instanceof Date)) {
+                date = new Date(date);
+            }
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${hours}:${minutes}`;
+        }
+        
+        // Fonction pour obtenir les initiales d'un nom de produit
+        function getProductInitials(productName) {
+            if (!productName) return '';
+            // Enlever "Crêpes" si présent et prendre les initiales des mots restants
+            const words = productName.replace(/Crêpes\s*/i, '').split(/\s+/);
+            return words.map(word => word.charAt(0).toUpperCase()).join('');
+        }
+        
+        // Fonction pour déterminer le programme actuel (synchronisé sur Master)
+        function getCurrentProgram() {
+            // Vérifier dans l'URL ou le localStorage
+            const urlParams = new URLSearchParams(window.location.search);
+            const programParam = urlParams.get('program');
+            if (programParam === 'master' || programParam === 'bachelor') {
+                return programParam;
+            }
+            
+            // Sinon, vérifier le localStorage
+            const savedProgram = localStorage.getItem('userProgram');
+            if (savedProgram === 'master' || savedProgram === 'bachelor') {
+                return savedProgram;
+            }
+            
+            // Par défaut, retourner 'master' (synchronisé sur Master)
+            return 'master';
+        }
+        
+        // Afficher un message
+        function showMessage(message, type) {
+            const messageContainer = document.getElementById('messageContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type === 'success' ? 'success' : 'error';
+            messageDiv.textContent = message;
+            messageContainer.innerHTML = '';
+            messageContainer.appendChild(messageDiv);
+            
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 3000);
+        }
+        
+        // Marquer une commande comme livrée
+        async function markOrderAsDelivered(orderId) {
+            try {
+                await db.collection('orders').doc(orderId).update({
+                    status: 'delivered'
+                });
+                
+                showMessage('✅ Commande marquée comme livrée', 'success');
+                
+                // Recharger les livraisons après un court délai
+                setTimeout(() => {
+                    loadDeliveries();
+                }, 500);
+                
+            } catch (error) {
+                console.error('Erreur lors de la mise à jour:', error);
+                showMessage('❌ Erreur: ' + error.message, 'error');
+            }
+        }
+        
+        // Load deliveries (uniquement les commandes confirmées)
+        async function loadDeliveries() {
+            try {
+                // Récupérer les fillings et snacks personnalisés
+                const fillingsSnapshot = await db.collection('customFillings').get();
+                const snacksSnapshot = await db.collection('customSnacks').get();
+                
+                const fillingsMap = {};
+                fillingsSnapshot.forEach(doc => {
+                    const filling = doc.data();
+                    fillingsMap[filling.productId || doc.id] = filling.name || filling.productId;
+                });
+                
+                const snacksMap = {};
+                snacksSnapshot.forEach(doc => {
+                    const snack = doc.data();
+                    snacksMap[snack.productId || doc.id] = snack.name || snack.productId;
+                });
+                
+                // Récupérer les commandes filtrées par programme ET statut "confirmed"
+                const program = getCurrentProgram();
+                let ordersSnapshot;
+                try {
+                    // Essayer de filtrer par programme et statut
+                    ordersSnapshot = await db.collection('orders')
+                        .where('program', '==', program)
+                        .where('status', '==', 'confirmed')
+                        .get();
+                } catch (error) {
+                    // Si l'index composite n'existe pas, charger toutes les commandes et filtrer en JavaScript
+                    console.warn('Index composite manquant, chargement sans filtre:', error);
+                    ordersSnapshot = await db.collection('orders').get();
+                }
+                
+                const orders = [];
+                ordersSnapshot.forEach((doc) => {
+                    const orderData = { id: doc.id, ...doc.data() };
+                    // Filtrer par programme et statut si on a chargé toutes les commandes
+                    if (orderData.program && orderData.program !== program) {
+                        return;
+                    }
+                    // Uniquement les commandes confirmées
+                    if (orderData.status !== 'confirmed') {
+                        return;
+                    }
+                    orders.push(orderData);
+                });
+                
+                // Grouper les commandes par salle ET par heure de livraison
+                const groups = {};
+                orders.forEach((order) => {
+                    const classroom = order.classroom || order.classNumber || 'N/A';
+                    const deliveryTime = order.deliveryTime ? 
+                        (order.deliveryTime.toDate ? order.deliveryTime.toDate() : new Date(order.deliveryTime)) : 
+                        null;
+                    
+                    if (!deliveryTime) return;
+                    
+                    const deliveryTimeStr = formatTime(deliveryTime);
+                    const groupKey = `${classroom}_${deliveryTimeStr}`;
+                    
+                    if (!groups[groupKey]) {
+                        groups[groupKey] = {
+                            classroom: classroom,
+                            deliveryTime: deliveryTime,
+                            deliveryTimeStr: deliveryTimeStr,
+                            orders: []
+                        };
+                    }
+                    groups[groupKey].orders.push(order);
+                });
+                
+                // Convertir en tableau et trier par heure de livraison (croissant)
+                const sortedGroups = Object.values(groups).sort((a, b) => {
+                    const timeA = a.deliveryTime.getTime();
+                    const timeB = b.deliveryTime.getTime();
+                    if (timeA !== timeB) {
+                        return timeA - timeB; // Ordre croissant (plus proche en haut)
+                    }
+                    // Si même heure, trier par salle
+                    const numA = parseInt(a.classroom.toString().replace(/\D/g, '')) || 0;
+                    const numB = parseInt(b.classroom.toString().replace(/\D/g, '')) || 0;
+                    return numA - numB;
+                });
+                
+                // Calculer les compteurs de produits pour chaque groupe
+                const deliveriesWithCounts = sortedGroups.map(group => {
+                    const productsCount = {};
+                    
+                    group.orders.forEach(order => {
+                        if (order.product) {
+                            // Obtenir le nom du produit
+                            let productName = '';
+                            if (order.product.startsWith('crepes-')) {
+                                productName = fillingsMap[order.product] || 
+                                    (order.product.replace('crepes-', '').charAt(0).toUpperCase() + 
+                                     order.product.replace('crepes-', '').slice(1));
+                            } else {
+                                productName = snacksMap[order.product] || order.product;
+                            }
+                            
+                            const initials = getProductInitials(productName);
+                            const quantity = order.quantity || 1;
+                            
+                            if (initials) {
+                                productsCount[initials] = (productsCount[initials] || 0) + quantity;
+                            }
+                        }
+                    });
+                    
+                    return {
+                        ...group,
+                        productsCount: productsCount
+                    };
+                });
+                
+                // Afficher les livraisons
+                const deliveriesListDiv = document.getElementById('deliveriesList');
+                if (deliveriesWithCounts.length === 0) {
+                    deliveriesListDiv.innerHTML = '<div class="error">Aucune commande confirmée à livrer</div>';
+                    return;
+                }
+                
+                let html = '';
+                
+                deliveriesWithCounts.forEach((delivery, groupIndex) => {
+                    // Créer le texte des compteurs de produits
+                    const countTexts = Object.entries(delivery.productsCount)
+                        .map(([initials, count]) => `${initials}: ${count}`)
+                        .join(', ');
+                    
+                    html += `
+                        <div style="margin-bottom: 30px; border: 2px solid #28a745; border-radius: 10px; overflow: hidden;">
+                            <div style="background: linear-gradient(135deg, #28a745, #1e7e34); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <h3 style="margin: 0; font-size: 1.3rem; font-weight: bold;">
+                                        📍 Salle ${delivery.classroom} - 🕐 Livraison: ${delivery.deliveryTimeStr}
+                                        ${countTexts ? `<span style="margin-left: 20px; font-size: 1rem; opacity: 0.9;">${countTexts}</span>` : ''}
+                                    </h3>
+                                    <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 0.9rem;">
+                                        ${delivery.orders.length} commande(s) confirmée(s)
+                                    </p>
+                                </div>
+                            </div>
+                            <table style="width: 100%; margin: 0;">
+                                <thead>
+                                    <tr>
+                                        <th style="background: #f8f9fa; padding: 12px;">Date</th>
+                                        <th style="background: #f8f9fa; padding: 12px;">Utilisateur</th>
+                                        <th style="background: #f8f9fa; padding: 12px;">Email</th>
+                                        <th style="background: #f8f9fa; padding: 12px;">Produit</th>
+                                        <th style="background: #f8f9fa; padding: 12px;">Prix</th>
+                                        <th style="background: #f8f9fa; padding: 12px;">Vote</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+                    
+                    delivery.orders.forEach((order, index) => {
+                        const orderDate = order.orderDate || (order.createdAt ? 
+                            (order.createdAt.toDate ? order.createdAt.toDate().toLocaleDateString() : new Date(order.createdAt).toLocaleDateString()) : 
+                            'N/A');
+                        const orderTime = order.orderTime || (order.createdAt ? 
+                            (order.createdAt.toDate ? order.createdAt.toDate().toLocaleTimeString() : new Date(order.createdAt).toLocaleTimeString()) : 
+                            '');
+                        const userName = order.userName || 'N/A';
+                        const userEmail = order.userEmail || 'N/A';
+                        
+                        let productName = 'N/A';
+                        if (order.product) {
+                            if (order.product.startsWith('crepes-')) {
+                                productName = fillingsMap[order.product] || 
+                                    (order.product.replace('crepes-', '').charAt(0).toUpperCase() + 
+                                     order.product.replace('crepes-', '').slice(1));
+                            } else {
+                                productName = snacksMap[order.product] || order.product;
+                            }
+                        }
+                        
+                        const price = order.price !== undefined ? (order.price === 0 ? 'FREE' : order.price + '€') : 'N/A';
+                        const vote = order.vote || 'N/A';
+                        const voteDisplay = vote === 'red' ? '<span style="color: #dc3545; font-weight: bold;">🔴 Rouge</span>' : 
+                                           vote === 'green' ? '<span style="color: #28a745; font-weight: bold;">🟢 Verte</span>' : 
+                                           'N/A';
+                        
+                        const rowColor = index % 2 === 0 ? '#fff' : '#f8f9fa';
+                        html += `
+                            <tr class="order-row" data-order-id="${order.id}" style="background: ${rowColor};" ondblclick="markOrderAsDelivered('${order.id}')" title="Double-cliquez pour marquer comme livrée">
+                                <td style="padding: 12px;">${orderDate} ${orderTime}</td>
+                                <td style="padding: 12px;">${userName}</td>
+                                <td style="padding: 12px;">${userEmail}</td>
+                                <td style="padding: 12px;">${productName}</td>
+                                <td style="padding: 12px;">${price}</td>
+                                <td style="padding: 12px;">${voteDisplay}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                });
+                
+                deliveriesListDiv.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Erreur lors du chargement des livraisons:', error);
+                document.getElementById('deliveriesList').innerHTML = `
+                    <div class="error">Erreur lors du chargement des livraisons: ${error.message}</div>
+                `;
+            }
+        }
+        
+        // Charger les livraisons au démarrage
+        loadDeliveries();
+        
+        // Recharger toutes les 10 secondes pour avoir les données à jour
+        setInterval(loadDeliveries, 10000);
+    </script>
+</body>
+</html>
+
