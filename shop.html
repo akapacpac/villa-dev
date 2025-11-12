@@ -1733,6 +1733,13 @@
             };
             return names[product] || product;
         }
+        
+        function getProductInitials(productName) {
+            if (!productName) return '';
+            // Enlever "Crêpes" si présent et prendre les initiales des mots restants
+            const words = productName.replace(/Crêpes\s*/i, '').split(/\s+/);
+            return words.map(word => word.charAt(0).toUpperCase()).join('');
+        }
 
         function getStatusClass(status) {
             const classes = {
@@ -1955,19 +1962,38 @@
                     groups[groupKey].orders.push(order);
                 });
                 
-            // Trier les groupes : d'abord par salle, puis par heure de livraison
+            // Trier les groupes par heure de livraison (croissant : plus tôt en haut)
                 const sortedGroups = Object.values(groups).sort((a, b) => {
-                // Comparer d'abord par salle
-                const classroomA = a.classroom.toString();
-                const classroomB = b.classroom.toString();
-                if (classroomA !== classroomB) {
-                    return classroomA.localeCompare(classroomB, undefined, { numeric: true, sensitivity: 'base' });
-                }
-                // Si même salle, comparer par heure
+                    // Comparer par heure de livraison
                     if (a.deliveryTime === 'N/A' && b.deliveryTime === 'N/A') return 0;
                     if (a.deliveryTime === 'N/A') return 1;
                     if (b.deliveryTime === 'N/A') return -1;
                     return a.deliveryTime.localeCompare(b.deliveryTime);
+                });
+                
+                // Calculer les compteurs de produits pour chaque groupe (seulement confirmé ou en attente)
+                const groupsWithCounts = sortedGroups.map(group => {
+                    const productsCount = {};
+                    
+                    group.orders.forEach(order => {
+                        // Ne compter que les commandes confirmées ou en attente (pas les livrées)
+                        if (order.status === 'delivered') return;
+                        
+                        if (order.product) {
+                            const productName = getProductName(order.product);
+                            const initials = getProductInitials(productName);
+                            const quantity = order.quantity || 1;
+                            
+                            if (initials) {
+                                productsCount[initials] = (productsCount[initials] || 0) + quantity;
+                            }
+                        }
+                    });
+                    
+                    return {
+                        ...group,
+                        productsCount: productsCount
+                    };
                 });
                 
                 let tableHTML = '';
@@ -1980,12 +2006,17 @@
                     </div>
                 `;
             } else {
-                sortedGroups.forEach((group, groupIndex) => {
+                groupsWithCounts.forEach((group, groupIndex) => {
+                    // Créer le texte des compteurs de produits
+                    const countTexts = Object.entries(group.productsCount)
+                        .map(([initials, count]) => `${count} ${initials}`)
+                        .join(', ');
+                    
                     // En-tête du groupe
                     tableHTML += `
                         <div style="margin-bottom: 30px; border: 2px solid #007bff; border-radius: 10px; overflow: visible;">
                             <div style="background: linear-gradient(135deg, #007bff, #0056b3); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
-                                <div>
+                                <div style="flex: 1;">
                                     <h3 style="margin: 0; font-size: 1.3rem; font-weight: bold;">
                                         📍 Salle ${group.classroom} - 🕐 Livraison: ${group.deliveryTime}
                                     </h3>
@@ -1993,6 +2024,11 @@
                                         ${group.orders.length} commande(s)
                                     </p>
                                 </div>
+                                ${countTexts ? `
+                                <div style="margin-left: 20px; padding: 8px 15px; background: rgba(255, 255, 255, 0.2); border-radius: 6px; font-size: 1rem; font-weight: 600;">
+                                    ${countTexts}
+                                </div>
+                                ` : ''}
                                 <div style="display: flex; gap: 10px; align-items: center; position: relative;">
                                     <button onclick="event.stopPropagation(); showGroupStatusDropdown('group_${groupIndex}', event)" style="background: linear-gradient(135deg, #17a2b8, #138496); color: black; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; transition: transform 0.2s; position: relative;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
                                         📊 Status
