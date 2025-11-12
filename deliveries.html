@@ -249,6 +249,10 @@
                     if (orderData.program && orderData.program !== program) {
                         return;
                     }
+                    // Filtrer : uniquement les commandes confirmées ou en attente (pas les livrées)
+                    if (orderData.status && orderData.status === 'delivered') {
+                        return;
+                    }
                     orders.push(orderData);
                 });
                 
