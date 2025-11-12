@@ -3082,25 +3082,45 @@
             try {
                 const program = getCurrentProgram();
                 
-                // Vérifier le stock global pour le programme actuel
-                const stockDoc = await db.collection('stock').doc(program).get();
-                if (!stockDoc.exists) return false;
+                // Déterminer si c'est un snack ou une crêpe
+                const isSnack = customSnacks.some(snack => snack.productId === productType);
+                const isCrepe = customFillings.some(filling => filling.productId === productType);
                 
-                const globalStock = stockDoc.data().quantity || 0;
-                if (globalStock <= 0) return false;
-                
-                // Vérifier le status du filling pour le programme actuel
-                const fillingDoc = await db.collection('fillingStatus').doc(program).get();
-                if (!fillingDoc.exists) return true; // Pas de status = OK
-                
-                const data = fillingDoc.data();
-                const fillingStatus = data[productType];
-                
-                // Si illimité, OK tant qu'il y a du stock global
-                if (fillingStatus === 'unlimited') return true;
-                
-                // Si limité, vérifier qu'il reste du filling
-                return fillingStatus > 0;
+                if (isSnack) {
+                    // GESTION DES SNACKS
+                    const snackStockDoc = await db.collection('snackStock').doc(program).get();
+                    if (!snackStockDoc.exists) return false;
+                    
+                    const snackStockData = snackStockDoc.data() || {};
+                    const snackStock = snackStockData[productType] || 0;
+                    
+                    return snackStock > 0;
+                } else if (isCrepe) {
+                    // GESTION DES CRÊPES (code existant)
+                    // Vérifier le stock global pour le programme actuel
+                    const stockDoc = await db.collection('stock').doc(program).get();
+                    if (!stockDoc.exists) return false;
+                    
+                    const globalStock = stockDoc.data().quantity || 0;
+                    if (globalStock <= 0) return false;
+                    
+                    // Vérifier le status du filling pour le programme actuel
+                    const fillingDoc = await db.collection('fillingStatus').doc(program).get();
+                    if (!fillingDoc.exists) return true; // Pas de status = OK
+                    
+                    const data = fillingDoc.data();
+                    const fillingStatus = data[productType];
+                    
+                    // Si illimité, OK tant qu'il y a du stock global
+                    if (fillingStatus === 'unlimited') return true;
+                    
+                    // Si limité, vérifier qu'il reste du filling
+                    return fillingStatus > 0;
+                } else {
+                    // Produit non reconnu
+                    console.warn('Produit non reconnu dans canOrderProduct:', productType);
+                    return false;
+                }
                 
             } catch (error) {
                 console.error('Erreur lors de la vérification du stock:', error);
