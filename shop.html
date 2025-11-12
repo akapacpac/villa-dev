@@ -2212,8 +2212,12 @@
                     showMessage(`✅ ${ordersToDelete.length} commande(s) supprimée(s) avec succès`, 'success');
                 }
                 
-                // Recharger le tableau et les classes
-                loadAllOrders();
+                // Recharger le tableau avec les filtres actuels
+                const statusFilters = getSelectedStatuses();
+                const productFilter = document.getElementById('productFilter')?.value || '';
+                const classFilter = document.getElementById('classFilter')?.value || '';
+                const sortFilter = document.getElementById('sortFilter')?.value || '';
+                await loadAllOrdersWithFilters(statusFilters, productFilter, classFilter, sortFilter);
                 
                 // Toujours recharger les classes (même si la modal n'est pas ouverte)
                 // Cela met à jour allClasses pour la prochaine ouverture de la modal
