@@ -1169,9 +1169,11 @@
                 await loadStockData();
             }
             
-            // 2. Recharger les commandes admin (onglet admin)
+            // 2. Recharger les commandes admin (onglet admin) avec filtres mémorisés
             if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'member' || currentUser.role === 'boss')) {
-                loadAllOrders();
+                const statusFilters = getSelectedStatuses();
+                const finalStatusFilters = statusFilters.length > 0 ? statusFilters : (currentFilters.statusFilters || ['pending', 'confirmed', 'delivered']);
+                loadAllOrdersWithFilters(finalStatusFilters, currentFilters.productFilter || '', currentFilters.classFilter || '', currentFilters.sortFilter || 'date-desc');
             }
             
             // 3. Recharger mes commandes (onglet my-orders)
