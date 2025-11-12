@@ -2581,34 +2581,46 @@
         // Vérifier le stock au chargement de la page
         async function checkStockOnLoad() {
             try {
-                // Vérifier chaque produit
-                const products = ['crepes-sucre', 'crepes-nutella', 'crepes-confiture'];
-                let hasAnyStock = false;
+                // S'assurer que customFillings est chargé
+                if (customFillings.length === 0) {
+                    await loadCustomFillings();
+                }
                 
-                for (const product of products) {
-                    const canOrder = await canOrderProduct(product);
-                    const button = document.querySelector(`button[onclick*="${product}"]`);
-                    
-                    if (button) {
-                        if (!canOrder) {
-                            button.disabled = true;
-                            button.textContent = 'Rupture de stock';
-                            button.style.background = '#ccc';
-                            button.style.cursor = 'not-allowed';
-                        } else {
-                            button.disabled = false;
-                            button.textContent = 'Commander';
-                            button.style.background = '#667eea';
-                            button.style.cursor = 'pointer';
-                            hasAnyStock = true;
+                // Vérifier tous les fillings personnalisés (crêpes)
+                let hasAnyCrepeStock = false;
+                
+                for (const filling of customFillings) {
+                    const canOrder = await canOrderProduct(filling.productId);
+                    if (canOrder) {
+                        hasAnyCrepeStock = true;
+                        break; // Si au moins un filling est disponible, on a du stock
+                    }
+                }
+                
+                // Vérifier aussi les snacks
+                if (customSnacks.length === 0) {
+                    await loadCustomSnacks();
+                }
+                
+                let hasAnySnackStock = false;
+                const program = getCurrentProgram();
+                const snackStockDoc = await db.collection('snackStock').doc(program).get();
+                if (snackStockDoc.exists) {
+                    const snackStockData = snackStockDoc.data() || {};
+                    for (const snack of customSnacks) {
+                        const stock = snackStockData[snack.productId] || 0;
+                        if (stock > 0) {
+                            hasAnySnackStock = true;
+                            break;
                         }
                     }
                 }
                 
                 // Afficher/masquer le message de stock épuisé
+                // Le message ne s'affiche que si TOUS les produits (crêpes ET snacks) sont en rupture
                 const noStockMessage = document.getElementById('noStockMessage');
                 if (noStockMessage) {
-                    if (hasAnyStock) {
+                    if (hasAnyCrepeStock || hasAnySnackStock) {
                         noStockMessage.style.display = 'none';
                     } else {
                         noStockMessage.style.display = 'block';
