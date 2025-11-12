@@ -3082,6 +3082,11 @@
             try {
                 const program = getCurrentProgram();
                 
+                // S'assurer que customSnacks est chargé
+                if (customSnacks.length === 0) {
+                    await loadCustomSnacks();
+                }
+                
                 // Déterminer si c'est un snack ou une crêpe
                 const isSnack = customSnacks.some(snack => snack.productId === productType);
                 const isCrepe = customFillings.some(filling => filling.productId === productType);
@@ -3089,10 +3094,15 @@
                 if (isSnack) {
                     // GESTION DES SNACKS
                     const snackStockDoc = await db.collection('snackStock').doc(program).get();
-                    if (!snackStockDoc.exists) return false;
+                    if (!snackStockDoc.exists) {
+                        console.log('canOrderProduct: snackStock document n\'existe pas pour', program);
+                        return false;
+                    }
                     
                     const snackStockData = snackStockDoc.data() || {};
                     const snackStock = snackStockData[productType] || 0;
+                    
+                    console.log('canOrderProduct snack:', { productType, program, snackStock, snackStockData });
                     
                     return snackStock > 0;
                 } else if (isCrepe) {
@@ -4526,11 +4536,20 @@
                 
                 // Mettre à jour le stock
                 snackStock[productId] = quantity;
-                await db.collection('snackStock').doc(program).set({
+                const updatedData = {
                     ...snackStock,
                     program: program,
                     lastUpdated: new Date()
-                });
+                };
+                
+                console.log('updateSnackStock:', { productId, program, quantity, updatedData });
+                
+                await db.collection('snackStock').doc(program).set(updatedData);
+                
+                // Vérifier que la mise à jour a bien été effectuée
+                const verifyDoc = await db.collection('snackStock').doc(program).get();
+                const verifyData = verifyDoc.exists ? verifyDoc.data() : {};
+                console.log('Vérification après updateSnackStock:', verifyData);
                 
                 // Mettre à jour l'affichage
                 const stockDisplay = document.getElementById(`snackStock_${productId}`);
@@ -4561,7 +4580,10 @@
                 loadRestockHistory();
                 
                 // Recharger les produits dans la page de commande pour mettre à jour l'affichage
-                loadProductsForOrders();
+                // Attendre un peu pour s'assurer que Firebase a bien mis à jour
+                setTimeout(() => {
+                    loadProductsForOrders();
+                }, 500);
                 
             } catch (error) {
                 console.error('Erreur lors de la mise à jour du stock:', error);
