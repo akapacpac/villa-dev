@@ -1273,7 +1273,10 @@
                 }
             } else if (tabName === 'admin') {
                 if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'member' || currentUser.role === 'boss')) {
-                    loadAllOrders();
+                    // Utiliser les filtres mémorisés pour le premier chargement
+                    const statusFilters = getSelectedStatuses();
+                    const finalStatusFilters = statusFilters.length > 0 ? statusFilters : (currentFilters.statusFilters || ['pending', 'confirmed', 'delivered']);
+                    loadAllOrdersWithFilters(finalStatusFilters, currentFilters.productFilter || '', currentFilters.classFilter || '', currentFilters.sortFilter || 'date-desc');
                 } else {
                     document.getElementById('adminOrdersTable').innerHTML = `
                         <div class="error">Accès refusé. Seuls les administrateurs, membres et BOSS peuvent accéder à cette section.</div>
